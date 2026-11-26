@@ -1,0 +1,37 @@
+suite,algorithm,category,runs,solve_rate,avg_path_cost_solved,avg_nodes_expanded,avg_elapsed_ms
+easy_d8,BFS,uninformed,3,1.0,8.0,519.3,2.07
+easy_d8,UCS,uninformed,3,1.0,8.0,1089.0,6.357
+easy_d8,IDDFS,uninformed,3,1.0,8.0,978.7,4.208
+easy_d8,Greedy Best-First [linear_conflict],informed,3,1.0,8.0,8.0,0.228
+easy_d8,A* [manhattan],informed,3,1.0,8.0,8.0,0.083
+easy_d8,A* [linear_conflict],informed,3,1.0,8.0,8.0,0.202
+easy_d8,Weighted A* [linear_conflict],informed,3,1.0,8.0,8.0,0.202
+easy_d8,IDA* [linear_conflict],informed,3,1.0,8.0,8.0,0.276
+easy_d8,Hill Climbing (Steepest) [linear_conflict],local,3,0.667,8.0,7.0,0.187
+easy_d8,Simulated Annealing [linear_conflict],local,3,0.0,,1094.0,10.292
+easy_d8,Local Beam Search [linear_conflict],local,3,1.0,8.0,75.3,1.593
+easy_d8,Genetic Algorithm [linear_conflict],evolutionary,3,1.0,8.67,4000.0,169.335
+medium_d16,BFS,uninformed,3,0.333,14.0,35289.7,183.869
+medium_d16,UCS,uninformed,3,0.0,,40000.0,242.676
+medium_d16,IDDFS,uninformed,3,0.333,14.0,58070.0,258.007
+medium_d16,Greedy Best-First [linear_conflict],informed,3,1.0,30.0,146.7,3.586
+medium_d16,A* [manhattan],informed,3,1.0,15.33,44.7,0.4
+medium_d16,A* [linear_conflict],informed,3,1.0,15.33,36.0,0.74
+medium_d16,Weighted A* [linear_conflict],informed,3,1.0,15.33,41.3,0.895
+medium_d16,IDA* [linear_conflict],informed,3,1.0,15.33,44.7,1.468
+medium_d16,Hill Climbing (Steepest) [linear_conflict],local,3,0.333,14.0,10.0,0.205
+medium_d16,Simulated Annealing [linear_conflict],local,3,0.0,,1094.0,8.614
+medium_d16,Local Beam Search [linear_conflict],local,3,1.0,15.33,192.7,3.951
+medium_d16,Genetic Algorithm [linear_conflict],evolutionary,3,0.333,20.0,4000.0,267.433
+hard_d28,BFS,uninformed,3,0.0,,40000.0,172.813
+hard_d28,UCS,uninformed,3,0.0,,40000.0,243.091
+hard_d28,IDDFS,uninformed,3,0.0,,60000.0,253.695
+hard_d28,Greedy Best-First [linear_conflict],informed,3,1.0,50.67,239.3,4.856
+hard_d28,A* [manhattan],informed,3,1.0,23.33,764.7,6.744
+hard_d28,A* [linear_conflict],informed,3,1.0,23.33,269.7,5.158
+hard_d28,Weighted A* [linear_conflict],informed,3,1.0,24.0,197.7,3.868
+hard_d28,IDA* [linear_conflict],informed,3,1.0,23.33,519.3,18.06
+hard_d28,Hill Climbing (Steepest) [linear_conflict],local,3,0.0,,9.3,0.19
+hard_d28,Simulated Annealing [linear_conflict],local,3,0.0,,1094.0,9.123
+hard_d28,Local Beam Search [linear_conflict],local,3,1.0,34.67,499.7,9.289
+hard_d28,Genetic Algorithm [linear_conflict],evolutionary,3,0.0,,4000.0,370.842

@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>4×4 15-Puzzle — University AI Search &amp; Evolutionary Computation Lab</title>
+  <link rel="stylesheet" href="styles/main.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <h1>4×4 15-Puzzle AI Search &amp; Genetic Algorithm Studio</h1>
+        <div class="subtitle">
+          University Artificial Intelligence Course (Search Chapter) · Uninformed · Informed · Local · Darwinian GA
+        </div>
+      </div>
+      <nav class="nav-controls" aria-label="Primary sections">
+        <button type="button" class="nav-tab active" data-tab="studio">Solver Studio</button>
+        <button type="button" class="nav-tab" data-tab="benchmarks">Charts &amp; Benchmarks</button>
+        <button type="button" class="nav-tab" data-tab="theory">Formulation &amp; Report</button>
+        <button type="button" class="btn" id="themeToggleBtn">🌙 Dark Theme</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- TAB 1: SOLVER STUDIO -->
+    <section class="tab-panel" data-panel="studio">
+      <div class="studio-grid">
+        <!-- Left Column: Boards, Playback, Telemetry -->
+        <div class="card">
+          <div class="card-title">
+            <span>Interactive 2D &amp; 3D Board Views</span>
+            <div class="toolbar-row" style="margin-bottom:0">
+              <button type="button" class="btn view-mode-btn active" data-view="both">Side-by-Side</button>
+              <button type="button" class="btn view-mode-btn" data-view="2d">2D Only</button>
+              <button type="button" class="btn view-mode-btn" data-view="3d">3D Only</button>
+            </div>
+          </div>
+
+          <div class="toolbar-row">
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.84rem;font-weight:600;">
+              <input type="checkbox" id="overlayToggle" checked />
+              Show per-tile Manhattan &amp; Linear Conflict overlays
+            </label>
+            <span class="muted">Tip: Click adjacent tiles or use Arrow keys to slide manually.</span>
+          </div>
+
+          <div class="boards-stage" id="boardsStage" data-view="both">
+            <div class="board-pane board-2d-pane">
+              <div class="pane-header">
+                <span>2D Tactile Grid</span>
+                <span>Goal: 1–15, blank 0</span>
+              </div>
+              <div id="board2dContainer"></div>
+            </div>
+
+            <div class="board-pane board-3d-pane">
+              <div class="pane-header">
+                <span>3D Rotatable Board (Drag to Orbit)</span>
+                <div style="display:flex;gap:4px;">
+                  <button type="button" class="btn" id="camIsoBtn" style="padding:2px 7px;font-size:0.74rem;">Iso</button>
+                  <button type="button" class="btn" id="camTopBtn" style="padding:2px 7px;font-size:0.74rem;">Top</button>
+                  <button type="button" class="btn" id="camLowBtn" style="padding:2px 7px;font-size:0.74rem;">Low</button>
+                  <button type="button" class="btn" id="camZoomInBtn" style="padding:2px 7px;font-size:0.74rem;">+</button>
+                  <button type="button" class="btn" id="camZoomOutBtn" style="padding:2px 7px;font-size:0.74rem;">−</button>
+                </div>
+              </div>
+              <div id="board3dContainer" style="width:100%"></div>
+            </div>
+          </div>
+
+          <!-- Playback & Timeline -->
+          <div class="playback-bar">
+            <button type="button" class="btn" id="pbFirstBtn" title="First step">⏮</button>
+            <button type="button" class="btn" id="pbPrevBtn" title="Previous step">◀</button>
+            <button type="button" class="btn btn-primary" id="pbPlayPauseBtn">▶ Play</button>
+            <button type="button" class="btn" id="pbNextBtn" title="Next step">▶</button>
+            <button type="button" class="btn" id="pbLastBtn" title="Last step">⏭</button>
+            <button type="button" class="btn" id="pbStopBtn" title="Stop &amp; Reset">⏹</button>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;margin-left:auto;">
+              Speed:
+              <input type="range" id="pbSpeedRange" min="50" max="800" step="25" value="280" />
+              <span id="pbSpeedLabel" class="muted">280 ms/step</span>
+            </label>
+          </div>
+          <div class="muted" id="stepSummaryLabel" style="margin-top:6px;">Ready</div>
+          <div class="timeline-wrap" id="timelineChips"></div>
+
+          <div class="goal-banner" id="goalBanner" hidden>
+            GOAL STATE REACHED — conflict_count == 0
+          </div>
+
+          <!-- Live Telemetry -->
+          <div class="telemetry-grid">
+            <div class="tel-card">
+              <div class="tel-label">Current Step</div>
+              <div class="tel-val" id="telStep">0 / 0</div>
+            </div>
+            <div class="tel-card">
+              <div class="tel-label">Path Cost g(n)</div>
+              <div class="tel-val" id="telPathCost">0</div>
+            </div>
+            <div class="tel-card">
+              <div class="tel-label">Manhattan Distance</div>
+              <div class="tel-val" id="telManhattan">0</div>
+            </div>
+            <div class="tel-card">
+              <div class="tel-label">Conflict Count</div>
+              <div class="tel-val" id="telConflict">0</div>
+            </div>
+            <div class="tel-card">
+              <div class="tel-label">Nodes Expanded / Gen</div>
+              <div class="tel-val" id="telNodes">—</div>
+            </div>
+            <div class="tel-card">
+              <div class="tel-label">Runtime &amp; Status</div>
+              <div class="tel-val" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <span id="telElapsed">—</span>
+                <span class="status-badge" id="telStatusBadge">Ready</span>
+              </div>
+            </div>
+          </div>
+          <div class="muted" id="solverExtraNotice" style="margin-top:8px;"></div>
+        </div>
+
+        <!-- Right Column: Board Generator, Algorithm & Hyperparameters -->
+        <div style="display:flex;flex-direction:column;gap:18px;">
+          <div class="card">
+            <h2 class="card-title">
+              <span>Initial State &amp; Solvability Checker</span>
+              <button type="button" class="btn" id="toggleEditorBtn">Custom 4×4 Editor</button>
+            </h2>
+
+            <div class="solvability-pill solvable-ok" id="solvabilityIndicator" style="margin-bottom:10px;"></div>
+
+            <div class="form-grid">
+              <div class="form-field">
+                <label for="presetSelect">Difficulty Preset</label>
+                <select id="presetSelect">
+                  <option value="easy">Easy (Depth 10)</option>
+                  <option value="medium">Medium (Depth 22)</option>
+                  <option value="hard">Hard (Depth 40)</option>
+                  <option value="classic">Classic Benchmark (Depth 20)</option>
+                </select>
+              </div>
+              <div class="form-field" style="justify-content:flex-end;">
+                <button type="button" class="btn" id="applyPresetBtn">Load Preset</button>
+              </div>
+
+              <div class="form-field">
+                <label for="scrambleDepthInput">Scramble Depth (Moves from Goal)</label>
+                <input type="number" id="scrambleDepthInput" min="1" max="60" value="14" />
+              </div>
+              <div class="form-field">
+                <label for="scrambleSeedInput">Scramble RNG Seed</label>
+                <input type="number" id="scrambleSeedInput" value="42" />
+              </div>
+              <div class="form-field full">
+                <button type="button" class="btn" id="scrambleBtn">Generate Solvable Scramble</button>
+              </div>
+            </div>
+
+            <div class="editor-panel" id="customEditorPanel" hidden>
+              <div class="muted">Enter permutation of <code>0..15</code> (<code>0</code> = blank):</div>
+              <div class="editor-grid" id="editorGrid"></div>
+              <div class="form-field">
+                <label for="editorTextInput">Or Paste 16 Comma-Separated Tiles</label>
+                <input type="text" id="editorTextInput" />
+              </div>
+              <div class="solvability-pill" id="editorSolvabilityBadge" style="margin:8px 0;"></div>
+              <button type="button" class="btn btn-primary" id="editorApplyBtn">Apply Custom Board</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 class="card-title">Search Algorithm &amp; Hyperparameters</h2>
+
+            <div class="form-grid">
+              <div class="form-field full">
+                <label for="algorithmSelect">Algorithm (All 4 Search Families)</label>
+                <select id="algorithmSelect">
+                  <optgroup label="1. Uninformed (Blind) Search">
+                    <option value="bfs">Breadth-First Search (BFS)</option>
+                    <option value="ucs">Uniform Cost Search (UCS)</option>
+                    <option value="dls">Depth-Limited Search (DLS)</option>
+                    <option value="iddfs">Iterative Deepening DFS (IDDFS)</option>
+                    <option value="dfs">Depth-First Search (DFS)</option>
+                  </optgroup>
+                  <optgroup label="2. Informed (Heuristic) Search">
+                    <option value="astar" selected>A* Search</option>
+                    <option value="idastar">Iterative Deepening A* (IDA*)</option>
+                    <option value="wastar">Weighted A* Search</option>
+                    <option value="gbfs">Greedy Best-First Search</option>
+                  </optgroup>
+                  <optgroup label="3. Local Search">
+                    <option value="hc_steepest">Hill Climbing (Steepest-Ascent)</option>
+                    <option value="hc_stochastic">Hill Climbing (Stochastic)</option>
+                    <option value="hc_restart">Hill Climbing (Random-Restart)</option>
+                    <option value="sa">Simulated Annealing</option>
+                    <option value="beam">Local Beam Search</option>
+                  </optgroup>
+                  <optgroup label="4. Metaheuristics / Evolutionary">
+                    <option value="ga">Darwinian Genetic Algorithm (GA)</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              <div class="form-field" id="heuristicGroup">
+                <label for="heuristicSelect">Heuristic Function</label>
+                <select id="heuristicSelect">
+                  <option value="linear_conflict" selected>Manhattan + 2×Linear Conflict</option>
+                  <option value="manhattan">Manhattan Distance</option>
+                  <option value="misplaced">Misplaced Tiles (Hamming)</option>
+                </select>
+              </div>
+
+              <div class="form-field" id="weightGroup" hidden>
+                <label for="weightInput">Weighted A* Weight (w ≥ 1)</label>
+                <input type="number" id="weightInput" min="1" max="10" step="0.1" value="1.5" />
+              </div>
+
+              <div class="form-field" id="depthLimitGroup" hidden>
+                <label for="depthLimitInput">Depth Limit</label>
+                <input type="number" id="depthLimitInput" min="1" max="80" value="26" />
+              </div>
+
+              <div class="form-field" id="beamWidthGroup" hidden>
+                <label for="beamWidthInput">Beam Width (k)</label>
+                <input type="number" id="beamWidthInput" min="1" max="200" value="12" />
+              </div>
+
+              <div class="form-field full" id="saGroup" hidden>
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label for="saTempInput">Initial Temp (T₀)</label>
+                    <input type="number" id="saTempInput" min="0.5" step="0.5" value="12" />
+                  </div>
+                  <div class="form-field">
+                    <label for="saCoolingInput">Cooling Rate (α)</label>
+                    <input type="number" id="saCoolingInput" min="0.8" max="0.9999" step="0.001" value="0.995" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-field">
+                <label for="maxNodesInput">Max Nodes Bound</label>
+                <input type="number" id="maxNodesInput" min="1000" step="10000" value="120000" />
+              </div>
+              <div class="form-field">
+                <label for="maxTimeInput">Max Time (ms)</label>
+                <input type="number" id="maxTimeInput" min="200" step="500" value="5000" />
+              </div>
+            </div>
+
+            <!-- Darwinian GA Hyperparameters -->
+            <div class="ga-box" id="gaParamsPanel" hidden>
+              <h4>Darwinian Genetic Algorithm Parameters</h4>
+              <div class="form-grid">
+                <div class="form-field">
+                  <label for="gaPopSize">Population Size</label>
+                  <input type="number" id="gaPopSize" min="10" max="300" step="2" value="50" />
+                </div>
+                <div class="form-field">
+                  <label for="gaSeqLen">Sequence Length (L)</label>
+                  <input type="number" id="gaSeqLen" min="6" max="120" value="28" />
+                </div>
+                <div class="form-field">
+                  <label for="gaGenerations">Generations</label>
+                  <input type="number" id="gaGenerations" min="10" max="500" value="120" />
+                </div>
+                <div class="form-field">
+                  <label for="gaMutationRate">Mutation Rate</label>
+                  <input type="number" id="gaMutationRate" min="0" max="1" step="0.05" value="0.15" />
+                </div>
+                <div class="form-field">
+                  <label for="gaCrossoverType">Crossover Type</label>
+                  <select id="gaCrossoverType">
+                    <option value="single_point">Single-Point</option>
+                    <option value="two_point" selected>Two-Point</option>
+                  </select>
+                </div>
+                <div class="form-field">
+                  <label for="gaMutationType">Mutation Operator</label>
+                  <select id="gaMutationType">
+                    <option value="point" selected>Point Mutation</option>
+                    <option value="swap">Swap Mutation</option>
+                    <option value="segment">Segment Perturbation</option>
+                  </select>
+                </div>
+                <div class="form-field">
+                  <label for="gaSelectionMethod">Selection Method</label>
+                  <select id="gaSelectionMethod">
+                    <option value="tournament" selected>k-Tournament Selection</option>
+                    <option value="roulette">Roulette Wheel (Prob Sum)</option>
+                  </select>
+                </div>
+                <div class="form-field">
+                  <label for="gaTournamentK">Tournament Size (k)</label>
+                  <input type="number" id="gaTournamentK" min="2" max="16" value="4" />
+                </div>
+                <div class="form-field">
+                  <label for="gaLargeConstant">LARGE_CONSTANT</label>
+                  <input type="number" id="gaLargeConstant" min="1000" step="1000" value="10000" />
+                </div>
+                <div class="form-field">
+                  <label for="gaElitism">Elitism Count</label>
+                  <input type="number" id="gaElitism" min="0" max="10" value="2" />
+                </div>
+                <div class="form-field full">
+                  <label for="gaSeed">GA RNG Seed</label>
+                  <input type="number" id="gaSeed" value="42" />
+                </div>
+              </div>
+            </div>
+
+            <div class="toolbar-row" style="margin-top:14px;margin-bottom:0;">
+              <button type="button" class="btn btn-primary" id="solveBtn" style="flex:1;">Solve &amp; Animate</button>
+              <button type="button" class="btn" id="resetInitialBtn">Reset Board</button>
+              <button type="button" class="btn" id="exportJsonBtn">Export JSON</button>
+              <button type="button" class="btn" id="exportCsvBtn">Export CSV</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: CHARTS & BENCHMARKS -->
+    <section class="tab-panel" data-panel="benchmarks" hidden>
+      <div class="charts-grid">
+        <div class="card">
+          <h2 class="card-title">GA Fitness Convergence (Best &amp; Mean)</h2>
+          <div id="gaFitnessChart"></div>
+        </div>
+        <div class="card">
+          <h2 class="card-title">GA Conflicts &amp; Path Cost Convergence</h2>
+          <div id="gaConflictChart"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:18px;">
+        <h2 class="card-title">GA Generation Telemetry Log</h2>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Generation</th>
+              <th>Best Fitness</th>
+              <th>Mean Fitness</th>
+              <th>Min Conflicts</th>
+              <th>Best Path Cost</th>
+              <th>Goal Reached (conflict=0)</th>
+            </tr>
+          </thead>
+          <tbody id="gaStatsTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="card" style="margin-top:18px;">
+        <h2 class="card-title">
+          <span>Multi-Algorithm Live Browser Benchmark</span>
+          <button type="button" class="btn btn-success" id="runBenchmarkBtn">
+            Run Multi-Algorithm Benchmark on Current Board
+          </button>
+        </h2>
+        <div class="charts-grid" style="margin-top:12px;">
+          <div id="benchCostChart"></div>
+          <div id="benchNodesChart"></div>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Algorithm</th>
+              <th>Category</th>
+              <th>Status</th>
+              <th>Path Cost</th>
+              <th>Nodes Expanded</th>
+              <th>Runtime</th>
+            </tr>
+          </thead>
+          <tbody id="benchTableBody">
+            <tr><td colspan="6" class="muted">Click "Run Multi-Algorithm Benchmark on Current Board" to evaluate all 4 families side-by-side.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TAB 3: FORMULATION & REPORT -->
+    <section class="tab-panel" data-panel="theory" hidden>
+      <div class="theory-grid">
+        <div class="card">
+          <h2 class="card-title">Formal Problem Formulation (PEAS &amp; State Space)</h2>
+          <p class="muted">
+            The 4×4 15-Puzzle consists of 15 numbered tiles and one blank cell (<code>0</code>) in row-major order.
+          </p>
+          <ul>
+            <li><strong>State Space Size:</strong> <code>16! / 2 = 10,461,394,944,000</code> reachable configurations.</li>
+            <li><strong>Initial State:</strong> Any validated solvable permutation; Goal: <code>[1..15, 0]</code>.</li>
+            <li><strong>Actions &amp; Branching Factor:</strong> <code>{UP, DOWN, LEFT, RIGHT}</code> blank moves; raw <code>b ∈ {2,3,4}</code> (avg ~3.0), effective <code>b* ≈ 2.13</code> after inverse pruning.</li>
+            <li><strong>Solvability Invariant (4×4):</strong> Reachable from goal iff <code>(inversions + blank_row_from_bottom) ≡ 1 (mod 2)</code>.</li>
+          </ul>
+          <div class="formula-block">
+h1(s) = Σ [tile_i != 0 and tile_i != goal_i]   (Misplaced Tiles, admissible)<br/>
+h2(s) = Σ (|r_i - r*_i| + |c_i - c*_i|)        (Manhattan Distance, consistent)<br/>
+h3(s) = h2(s) + 2 × linear_conflicts(s)        (Linear Conflict, dominant &amp; consistent)
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">Darwinian Genetic Algorithm Formulation</h2>
+          <p class="muted">
+            Chromosomes encode fixed-length action sequences <code>A = (a₁, a₂, …, a_L)</code> evaluated sequentially with early termination when <code>goal_test(s_t)</code> becomes <code>True</code>.
+          </p>
+          <div class="formula-block">
+conflict_count(s) = misplaced_tiles(s) + 2 × linear_conflicts(s)  (0 ⇔ goal)<br/><br/>
+fitness(A) = LARGE_CONSTANT - path_cost                     if goal_test == True<br/>
+           = BASE_CONSTANT - (w_d·h + w_c·conflict + w_g·cost + w_inv·invalid)  else
+          </div>
+          <ul>
+            <li><strong>Selection:</strong> <code>select(population)</code> evaluates fitness internally and returns <code>N/2</code> parent pairs via <em>Roulette Wheel</em> (normalized probability sum) or <em>k-Tournament</em> (default <code>k=4</code>).</li>
+            <li><strong>Operators:</strong> Single-Point / Two-Point Crossover + Point / Swap / Segment Mutation under a seeded PRNG.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="theory-grid" style="margin-top:18px;">
+        <div class="card">
+          <h2 class="card-title">AI Search Taxonomy Diagram</h2>
+          <svg viewBox="0 0 560 230" class="diagram-svg" role="img" aria-label="Search Taxonomy">
+            <rect x="200" y="12" width="160" height="36" rx="8" class="diagram-box" />
+            <text x="280" y="34" text-anchor="middle" class="diagram-text">15-Puzzle Search Solvers</text>
+
+            <line x1="280" y1="48" x2="75" y2="85" stroke="#64748b" stroke-width="1.5" />
+            <line x1="280" y1="48" x2="210" y2="85" stroke="#64748b" stroke-width="1.5" />
+            <line x1="280" y1="48" x2="350" y2="85" stroke="#64748b" stroke-width="1.5" />
+            <line x1="280" y1="48" x2="485" y2="85" stroke="#64748b" stroke-width="1.5" />
+
+            <rect x="12" y="85" width="126" height="122" rx="8" class="diagram-box" />
+            <text x="75" y="106" text-anchor="middle" class="diagram-text">1. Uninformed</text>
+            <text x="75" y="128" text-anchor="middle" class="diagram-sub">BFS (optimal)</text>
+            <text x="75" y="146" text-anchor="middle" class="diagram-sub">UCS (optimal)</text>
+            <text x="75" y="164" text-anchor="middle" class="diagram-sub">DFS / DLS</text>
+            <text x="75" y="182" text-anchor="middle" class="diagram-sub">IDDFS (O(bd) mem)</text>
+
+            <rect x="148" y="85" width="126" height="122" rx="8" class="diagram-box" />
+            <text x="211" y="106" text-anchor="middle" class="diagram-text">2. Informed</text>
+            <text x="211" y="128" text-anchor="middle" class="diagram-sub">Greedy Best-First</text>
+            <text x="211" y="146" text-anchor="middle" class="diagram-sub">A* (f = g + h)</text>
+            <text x="211" y="164" text-anchor="middle" class="diagram-sub">Weighted A*</text>
+            <text x="211" y="182" text-anchor="middle" class="diagram-sub">IDA* (low memory)</text>
+
+            <rect x="284" y="85" width="126" height="122" rx="8" class="diagram-box" />
+            <text x="347" y="106" text-anchor="middle" class="diagram-text">3. Local Search</text>
+            <text x="347" y="128" text-anchor="middle" class="diagram-sub">Hill Climbing (3x)</text>
+            <text x="347" y="146" text-anchor="middle" class="diagram-sub">Simulated Annealing</text>
+            <text x="347" y="164" text-anchor="middle" class="diagram-sub">Local Beam (k)</text>
+            <text x="347" y="182" text-anchor="middle" class="diagram-sub">O(1)/O(k) memory</text>
+
+            <rect x="420" y="85" width="128" height="122" rx="8" class="diagram-box" />
+            <text x="484" y="106" text-anchor="middle" class="diagram-text">4. Evolutionary</text>
+            <text x="484" y="128" text-anchor="middle" class="diagram-sub">Darwinian GA</text>
+            <text x="484" y="146" text-anchor="middle" class="diagram-sub">Roulette / 4-Tourn.</text>
+            <text x="484" y="164" text-anchor="middle" class="diagram-sub">1-Pt / 2-Pt Cross</text>
+            <text x="484" y="182" text-anchor="middle" class="diagram-sub">Point/Swap/Seg Mut</text>
+          </svg>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">OOP Architecture &amp; Complexity Summary</h2>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Algorithm</th>
+                <th>Complete</th>
+                <th>Optimal</th>
+                <th>Time</th>
+                <th>Space</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>BFS / UCS</td><td>Yes*</td><td>Yes</td><td>O(b^d)</td><td>O(b^d)</td></tr>
+              <tr><td>IDDFS</td><td>Yes*</td><td>Yes</td><td>O(b^d)</td><td>O(bd)</td></tr>
+              <tr><td>A* (Admissible h)</td><td>Yes*</td><td>Yes</td><td>O(b^d) pruned</td><td>O(b^d)</td></tr>
+              <tr><td>IDA* (Admissible h)</td><td>Yes*</td><td>Yes</td><td>Iterative f-bound</td><td>O(bd)</td></tr>
+              <tr><td>Weighted A* (w &gt; 1)</td><td>Yes*</td><td>≤ w·C*</td><td>Much faster</td><td>O(b^d) pruned</td></tr>
+              <tr><td>Local Search / GA</td><td>No</td><td>No</td><td>O(iters · k)</td><td>O(1) – O(pop·L)</td></tr>
+            </tbody>
+          </table>
+          <p class="muted" style="margin-top:8px;">
+            *Completeness/optimality hold within configured node/time bounds for solvable 4×4 instances.
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="js/ui/app.js"></script>
+</body>
+</html>
