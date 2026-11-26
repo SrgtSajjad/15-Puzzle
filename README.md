@@ -1,6 +1,24 @@
 # 4×4 15-Puzzle — University AI Course Search & Evolutionary Computation Project
 
-An academic-grade implementation, experimental benchmark suite, and interactive **2D / 3D** web visualizer for the **4×4 15-Puzzle** across all four classic AI Search paradigms: **Uninformed (Blind) Search**, **Informed (Heuristic) Search**, **Local Search**, and a **Darwinian Genetic Algorithm**.
+An academic-grade implementation, mathematical formulation, reproducible evaluation suite, and interactive **2D / 3D** web visualizer for the **4×4 15-Puzzle** across all four classic AI Search paradigms: **Uninformed (Blind) Search**, **Informed (Heuristic) Search**, **Local Search**, and a **Darwinian Genetic Algorithm**.
+
+**Live Web Demo (GitHub Pages):** [https://srgtsajjad.github.io/15-Puzzle/](https://srgtsajjad.github.io/15-Puzzle/)
+
+---
+
+## Course Deliverables Index
+
+| Course Deliverable | Description | Repository Path |
+|---|---|---|
+| **1. Problem & Environment (OOP)** | `PuzzleEnvironment`, `PuzzleState`, `Action`, solvability parity checker, scrambles, fixed-length sequence evaluator | [`python/puzzle15/`](python/puzzle15/) & [`docs/js/core/`](docs/js/core/) |
+| **2. Search Algorithms (4 Families)** | Uninformed (`BFS`, `UCS`, `DFS`, `DLS`, `IDDFS`), Informed (`GBFS`, `A*`, `Weighted A*`, `IDA*`), Local (`HC` 3×, `SA`, `Beam`), Darwinian `GA` | [`python/puzzle15/solvers/`](python/puzzle15/solvers/) & [`docs/js/solvers/`](docs/js/solvers/) |
+| **3. Problem Formulation Docs** | Formal PEAS, state space ($16!/2$), $b$ vs. $b^*$, mathematical proof of 4×4 solvability parity | [`reports/PROBLEM_AND_FORMULATION.md`](reports/PROBLEM_AND_FORMULATION.md) |
+| **4. Heuristics & GA Fitness Proofs** | Problem relaxations, Admissibility / Consistency / Dominance proofs ($h_3 \ge h_2 \ge h_1$), GA fitness & operators | [`reports/HEURISTICS_AND_FITNESS_DESIGN.md`](reports/HEURISTICS_AND_FITNESS_DESIGN.md) |
+| **5. Evaluation & Plot Runner** | 33-instance multi-depth experiment, $b^*$ bisection solver, Greedy-vs-Optimal & GA ablations, Matplotlib figure generator | [`python/evaluate_report.py`](python/evaluate_report.py) & [`python/benchmark.py`](python/benchmark.py) |
+| **6. Performance Report & Figures** | Full empirical tables ($b^*$, `Greedy_opt_ratio` histogram, scatter plots, GA convergence curves) | [`reports/EVALUATION_AND_REPORT.md`](reports/EVALUATION_AND_REPORT.md) & [`reports/figures/`](reports/figures/) |
+| **7. Interactive 2D/3D Web Studio** | Zero-backend static app with 2D & 3D orbit boards, manual play HUD, async *Solve At All Cost*, live benchmarks | [`docs/index.html`](docs/index.html) |
+| **8. Automated Test Suites** | Python `unittest` suite (21 tests) & Node.js parity + async tests (6 suites) | [`python/tests/`](python/tests/) & [`docs/js/tests/run_tests.mjs`](docs/js/tests/run_tests.mjs) |
+| **9. AI Chat Transcripts** | Clean chronological log of all user prompts and assistant responses for course submission | [`reports/AI_CHAT_TRANSCRIPTS.md`](reports/AI_CHAT_TRANSCRIPTS.md) |
 
 ---
 
@@ -8,50 +26,51 @@ An academic-grade implementation, experimental benchmark suite, and interactive 
 
 ```text
 15-Puzzle/
+├── .gitignore
 ├── README.md
-├── docs/                           # GitHub Pages static web app (zero backend)
+├── docs/                           # GitHub Pages static web app (zero backend, zero CDN)
 │   ├── index.html
 │   ├── styles/main.css
 │   └── js/
 │       ├── core/                   # SeededRNG, PuzzleEnvironment, Heuristics, SolverBase
-│       ├── solvers/                # Uninformed, Informed, Local, Genetic Algorithm
+│       ├── solvers/                # Uninformed, Informed, Local, Genetic Algorithm, AsyncRunner
 │       ├── ui/                     # Board2D, Board3D, SVG Charts, Playback, App controller
 │       └── tests/run_tests.mjs     # Node.js unit test suite
-├── python/                         # Zero-dependency Python 3.13 OOP implementation
+├── python/                         # Zero-dependency Python 3.13 core OOP implementation
 │   ├── puzzle15/                   # Actions, State, Node, Environment, Heuristics, Solvers
 │   ├── cli.py                      # Interactive CLI demo
-│   ├── benchmark.py                # Multi-seed experiment runner -> JSON/CSV
+│   ├── benchmark.py                # Multi-seed JSON/CSV benchmark runner
+│   ├── evaluate_report.py          # Full experiment suite + Effective b* + Matplotlib figures
 │   └── tests/                      # Python unittest suite
-└── reports/                        # Formal AI course documentation & benchmark outputs
+└── reports/                        # Academic English Markdown reports, datasets & figures
     ├── PROBLEM_AND_FORMULATION.md
-    ├── ALGORITHMS_AND_ANALYSIS.md
-    ├── benchmark_summary.json
-    └── benchmark_summary.csv
+    ├── HEURISTICS_AND_FITNESS_DESIGN.md
+    ├── EVALUATION_AND_REPORT.md
+    ├── AI_CHAT_TRANSCRIPTS.md
+    ├── evaluation_results.json
+    └── figures/                    # Generated PNG plots (fig1 .. fig5)
 ```
 
 ---
 
-## Quick Start
+## Quick Start & Verification Commands
 
-### 1. Python Library, CLI & Unit Tests
+### 1. Python CLI, Evaluation & Unit Tests
 
 Run from `15-Puzzle/python`:
 
 ```powershell
-# Run all 19 unit tests
+# Run all Python unit tests
 python -m unittest discover -s tests -v
 
-# Solve a preset using A* with Manhattan + Linear Conflict
+# Solve a preset via CLI (A* with Manhattan + Linear Conflict)
 python cli.py --preset medium --algorithm astar --heuristic linear_conflict --trace
 
-# Solve using IDA* on Hard preset
-python cli.py --preset hard --algorithm idastar --heuristic linear_conflict
-
-# Run the Darwinian Genetic Algorithm with custom hyperparameters
+# Run the Darwinian Genetic Algorithm via CLI
 python cli.py --scramble-depth 8 --algorithm ga --pop-size 50 --seq-len 24 --generations 120 --selection tournament --tournament-k 4 --crossover two_point --seed 42
 
-# Run multi-seed benchmarks across Easy, Medium, and Hard suites
-python benchmark.py --output ../reports/benchmark_summary.json --csv ../reports/benchmark_summary.csv
+# Run the 33-instance evaluation & regenerate all figures in reports/figures/
+python evaluate_report.py --json-out ../reports/evaluation_results.json --figures-dir ../reports/figures
 ```
 
 ### 2. JavaScript Unit Tests (Node.js)
@@ -62,27 +81,9 @@ Run from `15-Puzzle`:
 node --test docs/js/tests/run_tests.mjs
 ```
 
-### 3. Static Web App (Local & GitHub Pages)
+### 3. Local Web App Preview
 
-The `docs/` directory is completely static (native ES modules, zero build step, zero external CDNs).
-
-- **Local preview:**
-  ```powershell
-  python -m http.server 8765 -d docs
-  ```
-  Then open `http://localhost:8765`.
-- **GitHub Pages deployment:**
-  In your GitHub repository settings, go to **Settings → Pages → Build and deployment**, select **Deploy from a branch**, choose your branch and `/docs` folder, and save.
-
----
-
-## Key Features
-
-- **Consistent OOP Architecture (Python & JS):** `Action`, `PuzzleState`, `Node`, `PuzzleEnvironment`, `Evaluator`, `Solver`, and `GeneticAlgorithmSolver`.
-- **4×4 Solvability Validation:** Verifies permutation validity and parity invariant `(inversions + blank_row_from_bottom) % 2 == 1` in real time.
-- **All 4 Search Families:**
-  - *Uninformed:* BFS, UCS, DFS, DLS, IDDFS
-  - *Informed:* Greedy Best-First, A*, Weighted A*, IDA* (`misplaced`, `manhattan`, `linear_conflict`)
-  - *Local Search:* Hill Climbing (Steepest-Ascent, Stochastic, Random-Restart), Simulated Annealing, Local Beam Search
-  - *Evolutionary:* Darwinian Genetic Algorithm on fixed-length action sequences with Roulette Wheel & `k`-Tournament (`k=4`) selection, 1-point & 2-point crossover, point/swap/segment mutation, elitism, and per-generation convergence telemetry.
-- **Synchronized 2D & 3D Rotatable Visualization:** Interactive 2D grid with per-tile Manhattan & Linear Conflict overlays paired with a pointer-orbitable 3D extruded tile board, step-by-step playback, custom 4×4 board editor, SVG charts, and JSON/CSV export.
+```powershell
+python -m http.server 8765 -d docs
+```
+Open `http://localhost:8765` in your browser, or visit the live deployment at [https://srgtsajjad.github.io/15-Puzzle/](https://srgtsajjad.github.io/15-Puzzle/).
