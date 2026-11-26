@@ -25,6 +25,7 @@ import {
   SimulatedAnnealingSolver,
 } from "../solvers/local.js";
 import { GAConfig, GeneticAlgorithmSolver } from "../solvers/genetic.js";
+import { runBenchmarkSuiteAsync, solveAtAllCostAsync } from "../solvers/async_runner.js";
 
 function verifyPath(env, initialState, actions) {
   let curr = initialState;
@@ -169,4 +170,32 @@ test("Darwinian GA select pairs, roulette/tournament, and deterministic solve", 
   const rPop = gaRoulette.generatePopulation(board);
   assert.equal(gaRoulette.select(board, rPop).length, 20);
   assert.ok(new SeededRNG(5).random() >= 0);
+});
+
+test("Async IDA*, Solve At All Cost, and AbortController benchmark termination", async () => {
+  const env = new PuzzleEnvironment();
+  const medium = env.getPreset("medium");
+  const hard = env.getPreset("hard");
+
+  const idaSync = new IDAStarSolver(env, { heuristic: "linear_conflict" }).solve(medium);
+  const idaAsync = await new IDAStarSolver(env, { heuristic: "linear_conflict" }).solveAsync(medium);
+  assert.equal(idaAsync.solved, true);
+  assert.equal(idaAsync.pathCost, idaSync.pathCost);
+
+  const solvedHard = await solveAtAllCostAsync(env, hard);
+  assert.equal(solvedHard.solved, true);
+  const finalState = verifyPath(env, hard, solvedHard.actions);
+  assert.equal(env.goalTest(finalState), true);
+
+  const controller = new AbortController();
+  let completedCount = 0;
+  const benchResults = await runBenchmarkSuiteAsync(env, medium, {
+    signal: controller.signal,
+    onSolverFinish: (res) => {
+      if (res.status !== "terminated") completedCount++;
+      if (completedCount >= 2) controller.abort();
+    },
+  });
+  assert.equal(benchResults.length, 12);
+  assert.ok(benchResults.some((r) => r.status === "terminated"));
 });

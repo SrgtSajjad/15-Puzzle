@@ -4,18 +4,23 @@ import { Action, GRID_SIZE } from "../core/puzzle.js";
 /**
  * Interactive 3D rotatable 4x4 puzzle board built with extruded 6-face CSS 3D prisms
  * and smooth pointer-drag orbit + zoom controls (zero external CDN dependencies).
+ * Distinguishes short clicks/taps (< 5px drag) from camera orbit drags so tile clicks work reliably.
  */
 export class Board3D {
   constructor(container, { onTileMove = null } = {}) {
     this.container = container;
     this.onTileMove = onTileMove;
+    this.showOverlays = false;
     this.rotX = 48;
-    this.rotZ = -28;
+    this.rotZ = -26;
     this.zoom = 1.0;
-    this.isDragging = false;
+    this.isPointerDown = false;
     this.dragMoved = false;
+    this.downX = 0;
+    this.downY = 0;
     this.lastX = 0;
     this.lastY = 0;
+    this.downTileEl = null;
     this.tileElements = new Map();
     this._initDOM();
     this._attachOrbitHandlers();
@@ -24,7 +29,7 @@ export class Board3D {
   _initDOM() {
     this.container.innerHTML = "";
     this.stageEl = document.createElement("div");
-    this.stageEl.className = "board-3d-stage";
+    this.stageEl.className = "board-3d-stage hide-overlays";
 
     this.pivotEl = document.createElement("div");
     this.pivotEl.className = "board-3d-pivot";
@@ -59,15 +64,6 @@ export class Board3D {
         <div class="cube-face face-left"></div>
         <div class="cube-face face-right"></div>
       `;
-      cube.addEventListener("click", (e) => {
-        if (this.dragMoved) {
-          e.stopPropagation();
-          return;
-        }
-        if (this.onTileMove && cube.dataset.moveAction) {
-          this.onTileMove(cube.dataset.moveAction);
-        }
-      });
       this.tileElements.set(tile, cube);
       this.trayEl.appendChild(cube);
     }
@@ -78,22 +74,35 @@ export class Board3D {
     this._applyCamera();
   }
 
+  setOverlaysVisible(visible) {
+    this.showOverlays = Boolean(visible);
+    this.stageEl.classList.toggle("hide-overlays", !this.showOverlays);
+  }
+
   _attachOrbitHandlers() {
     this.stageEl.addEventListener("pointerdown", (e) => {
-      this.isDragging = true;
+      if (e.button !== 0 && e.pointerType === "mouse") return;
+      this.isPointerDown = true;
       this.dragMoved = false;
+      this.downX = e.clientX;
+      this.downY = e.clientY;
       this.lastX = e.clientX;
       this.lastY = e.clientY;
-      this.stageEl.setPointerCapture(e.pointerId);
+      this.downTileEl = e.target.closest(".tile-3d");
     });
 
-    this.stageEl.addEventListener("pointermove", (e) => {
-      if (!this.isDragging) return;
+    window.addEventListener("pointermove", (e) => {
+      if (!this.isPointerDown) return;
+      const totalDx = e.clientX - this.downX;
+      const totalDy = e.clientY - this.downY;
+      if (!this.dragMoved && Math.hypot(totalDx, totalDy) > 5) {
+        this.dragMoved = true;
+        this.stageEl.classList.add("is-orbiting");
+      }
+      if (!this.dragMoved) return;
+
       const dx = e.clientX - this.lastX;
       const dy = e.clientY - this.lastY;
-      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
-        this.dragMoved = true;
-      }
       this.lastX = e.clientX;
       this.lastY = e.clientY;
       this.rotZ += dx * 0.45;
@@ -101,20 +110,28 @@ export class Board3D {
       this._applyCamera();
     });
 
-    const endDrag = () => {
-      this.isDragging = false;
-      setTimeout(() => {
-        this.dragMoved = false;
-      }, 30);
+    const endPointer = () => {
+      if (!this.isPointerDown) return;
+      const wasDrag = this.dragMoved;
+      const tileEl = this.downTileEl;
+      this.isPointerDown = false;
+      this.dragMoved = false;
+      this.downTileEl = null;
+      this.stageEl.classList.remove("is-orbiting");
+
+      if (!wasDrag && tileEl && tileEl.dataset.moveAction && this.onTileMove) {
+        this.onTileMove(tileEl.dataset.moveAction);
+      }
     };
-    this.stageEl.addEventListener("pointerup", endDrag);
-    this.stageEl.addEventListener("pointercancel", endDrag);
+
+    window.addEventListener("pointerup", endPointer);
+    window.addEventListener("pointercancel", endPointer);
 
     this.stageEl.addEventListener(
       "wheel",
       (e) => {
         e.preventDefault();
-        this.zoom = Math.max(0.65, Math.min(1.45, this.zoom - e.deltaY * 0.0008));
+        this.zoom = Math.max(0.65, Math.min(1.4, this.zoom - e.deltaY * 0.0008));
         this._applyCamera();
       },
       { passive: false }
@@ -124,7 +141,7 @@ export class Board3D {
   setPreset(preset) {
     if (preset === "isometric") {
       this.rotX = 48;
-      this.rotZ = -28;
+      this.rotZ = -26;
       this.zoom = 1.0;
     } else if (preset === "top") {
       this.rotX = 12;
@@ -132,14 +149,14 @@ export class Board3D {
       this.zoom = 1.04;
     } else if (preset === "low") {
       this.rotX = 68;
-      this.rotZ = 24;
+      this.rotZ = 22;
       this.zoom = 1.02;
     }
     this._applyCamera();
   }
 
   adjustZoom(delta) {
-    this.zoom = Math.max(0.65, Math.min(1.45, this.zoom + delta));
+    this.zoom = Math.max(0.65, Math.min(1.4, this.zoom + delta));
     this._applyCamera();
   }
 

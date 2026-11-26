@@ -188,6 +188,101 @@ export class GeneticAlgorithmSolver extends Solver {
     return seq;
   }
 
+  _runGenerationStep(initialState, population, gen, stateObj) {
+    const evaluated = population.map((seq) => this.fitness(initialState, seq));
+    stateObj.totalEvaluations += evaluated.length;
+
+    let bestIdx = 0;
+    for (let i = 1; i < evaluated.length; i++) {
+      if (evaluated[i].fitness > evaluated[bestIdx].fitness) {
+        bestIdx = i;
+      }
+    }
+    const genBest = evaluated[bestIdx];
+    if (stateObj.bestResult === null || genBest.fitness > stateObj.bestResult.fitness) {
+      stateObj.bestResult = genBest;
+      stateObj.bestSequence = population[bestIdx].slice();
+    }
+
+    const solvedInGen = evaluated.filter((r) => r.evaluation.conflictCount === 0);
+    if (solvedInGen.length > 0 && stateObj.goalReachedGeneration === null) {
+      stateObj.goalReachedGeneration = gen;
+    }
+
+    const meanFit = evaluated.reduce((s, r) => s + r.fitness, 0) / evaluated.length;
+    const minConflicts = Math.min(...evaluated.map((r) => r.evaluation.conflictCount));
+    const minDistance = Math.min(...evaluated.map((r) => r.evaluation.distance));
+    const bestSolvedCost =
+      solvedInGen.length > 0
+        ? Math.min(...solvedInGen.map((r) => r.evaluation.pathCost))
+        : genBest.evaluation.pathCost;
+
+    stateObj.history.push({
+      generation: gen,
+      best_fitness: Number(genBest.fitness.toFixed(3)),
+      mean_fitness: Number(meanFit.toFixed(3)),
+      min_conflicts: minConflicts,
+      min_distance: minDistance,
+      best_path_cost: bestSolvedCost,
+      solved_count: solvedInGen.length,
+      goal_reached: solvedInGen.length > 0,
+    });
+
+    const ranked = Array.from({ length: population.length }, (_, i) => i).sort(
+      (a, b) => evaluated[b].fitness - evaluated[a].fitness
+    );
+    const eliteN = Math.min(this.config.elitismCount, population.length);
+    const nextPop = ranked.slice(0, eliteN).map((idx) => population[idx].slice());
+
+    const parentPairs = this.select(initialState, population, evaluated);
+    let pairIdx = 0;
+    while (nextPop.length < this.config.populationSize) {
+      const [pA, pB] = parentPairs[pairIdx % parentPairs.length];
+      pairIdx++;
+      let [cA, cB] = this.crossover(pA, pB, initialState);
+      cA = this.mutate(cA, initialState);
+      cB = this.mutate(cB, initialState);
+      nextPop.push(cA);
+      if (nextPop.length < this.config.populationSize) {
+        nextPop.push(cB);
+      }
+    }
+    return nextPop;
+  }
+
+  _finalizeSolve(initialState, heuristicName, start, stateObj, statusOverride = null) {
+    const finalEval = this.evaluator.evaluateSequence(initialState, stateObj.bestSequence, true);
+    const status = statusOverride || (finalEval.solved ? "solved" : "limit_reached");
+    return new SearchResult({
+      algorithm: this.name,
+      category: this.category,
+      status,
+      solved: finalEval.solved,
+      initialState,
+      finalState: finalEval.finalState,
+      actions: finalEval.executedActions.slice(),
+      pathCost: finalEval.pathCost,
+      heuristicName,
+      metrics: new SearchMetrics({
+        nodesExpanded: stateObj.totalEvaluations,
+        nodesGenerated: stateObj.totalEvaluations,
+        maxFrontierSize: this.config.populationSize,
+        elapsedMs: nowMs() - start,
+        extra: {
+          best_fitness: stateObj.bestResult ? Number(stateObj.bestResult.fitness.toFixed(3)) : 0,
+          final_conflict_count: finalEval.conflictCount,
+          final_distance: finalEval.distance,
+          goal_reached_generation: stateObj.goalReachedGeneration,
+          selection_method: this.config.selectionMethod,
+          crossover_type: this.config.crossoverType,
+          mutation_type: this.config.mutationType,
+          generations: stateObj.history.length,
+        },
+      }),
+      history: stateObj.history,
+    });
+  }
+
   solve(initialState) {
     const heuristicName = this.config.fitnessConfig.heuristicName;
     if (!this.env.isSolvable(initialState)) {
@@ -216,102 +311,58 @@ export class GeneticAlgorithmSolver extends Solver {
     }
 
     let population = this.generatePopulation(initialState);
-    let totalEvaluations = 0;
-    const history = [];
-    let bestSequence = population[0].slice();
-    let bestResult = null;
-    let goalReachedGeneration = null;
+    const stateObj = {
+      totalEvaluations: 0,
+      history: [],
+      bestSequence: population[0].slice(),
+      bestResult: null,
+      goalReachedGeneration: null,
+    };
 
     for (let gen = 0; gen < this.config.numGenerations; gen++) {
-      const evaluated = population.map((seq) => this.fitness(initialState, seq));
-      totalEvaluations += evaluated.length;
+      population = this._runGenerationStep(initialState, population, gen, stateObj);
+    }
+    return this._finalizeSolve(initialState, heuristicName, start, stateObj);
+  }
 
-      let bestIdx = 0;
-      for (let i = 1; i < evaluated.length; i++) {
-        if (evaluated[i].fitness > evaluated[bestIdx].fitness) {
-          bestIdx = i;
-        }
-      }
-      const genBest = evaluated[bestIdx];
-      if (bestResult === null || genBest.fitness > bestResult.fitness) {
-        bestResult = genBest;
-        bestSequence = population[bestIdx].slice();
-      }
+  async solveAsync(initialState, { signal = null, onProgress = null } = {}) {
+    const heuristicName = this.config.fitnessConfig.heuristicName;
+    if (!this.env.isSolvable(initialState)) {
+      return this.unsolvableResult(initialState, heuristicName);
+    }
+    const start = nowMs();
+    this.rng = new SeededRNG(this.config.seed);
 
-      const solvedInGen = evaluated.filter((r) => r.evaluation.conflictCount === 0);
-      if (solvedInGen.length > 0 && goalReachedGeneration === null) {
-        goalReachedGeneration = gen;
-      }
-
-      const meanFit = evaluated.reduce((s, r) => s + r.fitness, 0) / evaluated.length;
-      const minConflicts = Math.min(...evaluated.map((r) => r.evaluation.conflictCount));
-      const minDistance = Math.min(...evaluated.map((r) => r.evaluation.distance));
-      const bestSolvedCost =
-        solvedInGen.length > 0
-          ? Math.min(...solvedInGen.map((r) => r.evaluation.pathCost))
-          : genBest.evaluation.pathCost;
-
-      history.push({
-        generation: gen,
-        best_fitness: Number(genBest.fitness.toFixed(3)),
-        mean_fitness: Number(meanFit.toFixed(3)),
-        min_conflicts: minConflicts,
-        min_distance: minDistance,
-        best_path_cost: bestSolvedCost,
-        solved_count: solvedInGen.length,
-        goal_reached: solvedInGen.length > 0,
-      });
-
-      const ranked = Array.from({ length: population.length }, (_, i) => i).sort(
-        (a, b) => evaluated[b].fitness - evaluated[a].fitness
-      );
-      const eliteN = Math.min(this.config.elitismCount, population.length);
-      const nextPop = ranked.slice(0, eliteN).map((idx) => population[idx].slice());
-
-      const parentPairs = this.select(initialState, population, evaluated);
-      let pairIdx = 0;
-      while (nextPop.length < this.config.populationSize) {
-        const [pA, pB] = parentPairs[pairIdx % parentPairs.length];
-        pairIdx++;
-        let [cA, cB] = this.crossover(pA, pB, initialState);
-        cA = this.mutate(cA, initialState);
-        cB = this.mutate(cB, initialState);
-        nextPop.push(cA);
-        if (nextPop.length < this.config.populationSize) {
-          nextPop.push(cB);
-        }
-      }
-      population = nextPop;
+    if (this.env.goalTest(initialState)) {
+      return this.solve(initialState);
     }
 
-    const finalEval = this.evaluator.evaluateSequence(initialState, bestSequence, true);
-    return new SearchResult({
-      algorithm: this.name,
-      category: this.category,
-      status: finalEval.solved ? "solved" : "limit_reached",
-      solved: finalEval.solved,
-      initialState,
-      finalState: finalEval.finalState,
-      actions: finalEval.executedActions.slice(),
-      pathCost: finalEval.pathCost,
-      heuristicName,
-      metrics: new SearchMetrics({
-        nodesExpanded: totalEvaluations,
-        nodesGenerated: totalEvaluations,
-        maxFrontierSize: this.config.populationSize,
-        elapsedMs: nowMs() - start,
-        extra: {
-          best_fitness: Number(bestResult.fitness.toFixed(3)),
-          final_conflict_count: finalEval.conflictCount,
-          final_distance: finalEval.distance,
-          goal_reached_generation: goalReachedGeneration,
-          selection_method: this.config.selectionMethod,
-          crossover_type: this.config.crossoverType,
-          mutation_type: this.config.mutationType,
-          generations: this.config.numGenerations,
-        },
-      }),
-      history,
-    });
+    let population = this.generatePopulation(initialState);
+    const stateObj = {
+      totalEvaluations: 0,
+      history: [],
+      bestSequence: population[0].slice(),
+      bestResult: null,
+      goalReachedGeneration: null,
+    };
+
+    for (let gen = 0; gen < this.config.numGenerations; gen++) {
+      if (signal?.aborted) {
+        return this._finalizeSolve(initialState, heuristicName, start, stateObj, "terminated");
+      }
+      population = this._runGenerationStep(initialState, population, gen, stateObj);
+      if (gen % 2 === 0 || gen === this.config.numGenerations - 1) {
+        if (onProgress) {
+          onProgress({
+            algorithm: this.name,
+            generation: gen + 1,
+            nodesExpanded: stateObj.totalEvaluations,
+            elapsedMs: nowMs() - start,
+          });
+        }
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+    return this._finalizeSolve(initialState, heuristicName, start, stateObj);
   }
 }

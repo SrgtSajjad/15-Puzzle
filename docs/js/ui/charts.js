@@ -1,5 +1,6 @@
 /**
- * Lightweight zero-dependency SVG chart renderer for GA convergence and benchmarks.
+ * Lightweight zero-dependency SVG chart renderer for trajectory progress,
+ * GA convergence, and multi-algorithm benchmark comparisons.
  */
 function createSvgEl(tag, attrs = {}) {
   const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
@@ -9,7 +10,17 @@ function createSvgEl(tag, attrs = {}) {
   return el;
 }
 
-export function renderLineChart(container, { title, series, xLabel = "Generation", emptyText = "Run Genetic Algorithm to plot convergence." }) {
+export function renderLineChart(
+  container,
+  {
+    title,
+    series,
+    xLabel = "Generation",
+    height = 240,
+    highlightX = null,
+    emptyText = "No data yet.",
+  }
+) {
   container.innerHTML = "";
   if (!series || series.length === 0 || series[0].points.length === 0) {
     container.innerHTML = `<div class="chart-empty">${emptyText}</div>`;
@@ -17,8 +28,7 @@ export function renderLineChart(container, { title, series, xLabel = "Generation
   }
 
   const width = 520;
-  const height = 240;
-  const pad = { top: 28, right: 20, bottom: 36, left: 54 };
+  const pad = { top: 28, right: 18, bottom: 34, left: 48 };
   const plotW = width - pad.left - pad.right;
   const plotH = height - pad.top - pad.bottom;
 
@@ -40,7 +50,7 @@ export function renderLineChart(container, { title, series, xLabel = "Generation
     minY = Math.max(0, minY - 1);
   }
   const yPad = (maxY - minY) * 0.08;
-  minY -= yPad;
+  minY = Math.max(0, minY - yPad);
   maxY += yPad;
 
   const scaleX = (x) => pad.left + ((x - minX) / (maxX - minX)) * plotW;
@@ -73,7 +83,7 @@ export function renderLineChart(container, { title, series, xLabel = "Generation
       "text-anchor": "end",
       class: "chart-tick",
     });
-    label.textContent = Math.abs(val) >= 100 ? Math.round(val) : val.toFixed(1);
+    label.textContent = Math.abs(val) >= 100 ? Math.round(val) : val.toFixed(0);
     svg.appendChild(label);
   }
 
@@ -97,6 +107,22 @@ export function renderLineChart(container, { title, series, xLabel = "Generation
     })
   );
 
+  // Highlight cursor
+  if (highlightX !== null && highlightX >= minX && highlightX <= maxX) {
+    const hx = scaleX(highlightX);
+    svg.appendChild(
+      createSvgEl("line", {
+        x1: hx,
+        y1: pad.top,
+        x2: hx,
+        y2: pad.top + plotH,
+        stroke: "var(--accent)",
+        "stroke-width": 1.6,
+        "stroke-dasharray": "4 3",
+      })
+    );
+  }
+
   // X ticks
   const xSteps = Math.min(4, Math.max(1, maxX - minX));
   for (let i = 0; i <= xSteps; i++) {
@@ -104,7 +130,7 @@ export function renderLineChart(container, { title, series, xLabel = "Generation
     const x = scaleX(val);
     const label = createSvgEl("text", {
       x,
-      y: pad.top + plotH + 16,
+      y: pad.top + plotH + 15,
       "text-anchor": "middle",
       class: "chart-tick",
     });
@@ -121,7 +147,7 @@ export function renderLineChart(container, { title, series, xLabel = "Generation
   xTitle.textContent = xLabel;
   svg.appendChild(xTitle);
 
-  // Plot paths
+  // Plot series paths
   series.forEach((s) => {
     const d = s.points
       .map((pt, idx) => `${idx === 0 ? "M" : "L"}${scaleX(pt.x).toFixed(1)},${scaleY(pt.y).toFixed(1)}`)
@@ -144,7 +170,7 @@ export function renderLineChart(container, { title, series, xLabel = "Generation
     svg.appendChild(
       createSvgEl("rect", {
         x: legendX,
-        y: 8,
+        y: 7,
         width: 10,
         height: 10,
         rx: 2,
@@ -153,7 +179,7 @@ export function renderLineChart(container, { title, series, xLabel = "Generation
     );
     const txt = createSvgEl("text", {
       x: legendX + 14,
-      y: 17,
+      y: 16,
       class: "chart-legend",
     });
     txt.textContent = s.label;
@@ -164,16 +190,19 @@ export function renderLineChart(container, { title, series, xLabel = "Generation
   container.appendChild(svg);
 }
 
-export function renderBarChart(container, { title, bars, valueFormatter = (v) => String(v), emptyText = "Run benchmark suite to visualize comparison." }) {
+export function renderBarChart(
+  container,
+  { title, bars, valueFormatter = (v) => String(v), emptyText = "Run Compare All Algorithms to visualize comparison." }
+) {
   container.innerHTML = "";
   if (!bars || bars.length === 0) {
     container.innerHTML = `<div class="chart-empty">${emptyText}</div>`;
     return;
   }
 
-  const width = 540;
+  const width = 560;
   const height = Math.max(220, bars.length * 28 + 44);
-  const pad = { top: 24, right: 64, bottom: 20, left: 155 };
+  const pad = { top: 24, right: 78, bottom: 20, left: 168 };
   const plotW = width - pad.left - pad.right;
   const maxVal = Math.max(1, ...bars.map((b) => b.value));
 
@@ -194,7 +223,7 @@ export function renderBarChart(container, { title, bars, valueFormatter = (v) =>
 
   bars.forEach((bar, idx) => {
     const y = pad.top + idx * 28;
-    const barW = Math.max(2, (bar.value / maxVal) * plotW);
+    const barW = bar.value > 0 ? Math.max(3, (bar.value / maxVal) * plotW) : 2;
 
     const lbl = createSvgEl("text", {
       x: pad.left - 8,
@@ -213,7 +242,7 @@ export function renderBarChart(container, { title, bars, valueFormatter = (v) =>
         height: 16,
         rx: 4,
         fill: bar.color || "var(--accent)",
-        opacity: bar.solved ? "0.92" : "0.42",
+        opacity: bar.solved ? "0.94" : "0.35",
       })
     );
 
@@ -222,7 +251,8 @@ export function renderBarChart(container, { title, bars, valueFormatter = (v) =>
       y: y + 15,
       class: "chart-tick",
     });
-    valLbl.textContent = `${valueFormatter(bar.value)}${bar.solved ? "" : " (limit)"}`;
+    const suffix = bar.solved ? "" : bar.status === "terminated" ? " (stopped)" : " (limit)";
+    valLbl.textContent = `${valueFormatter(bar.value)}${suffix}`;
     svg.appendChild(valLbl);
   });
 

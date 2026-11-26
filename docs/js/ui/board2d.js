@@ -2,32 +2,33 @@ import { getTileDiagnostics } from "../core/heuristics.js";
 import { Action, GRID_SIZE } from "../core/puzzle.js";
 
 /**
- * Interactive 2D 4x4 puzzle board with optional heuristic overlays and tile clicking.
+ * Interactive 2D 4x4 puzzle board with clean minimal default tiles,
+ * optional heuristic/conflict overlays, tile clicking, and touch/mouse swipe support.
  */
 export class Board2D {
   constructor(container, { onTileMove = null } = {}) {
     this.container = container;
     this.onTileMove = onTileMove;
-    this.showOverlays = true;
+    this.showOverlays = false;
     this.tileElements = new Map();
+    this._swipeStart = null;
+    this._swipeHandled = false;
     this._initDOM();
   }
 
   _initDOM() {
     this.container.innerHTML = "";
     this.gridEl = document.createElement("div");
-    this.gridEl.className = "board-2d-grid";
+    this.gridEl.className = "board-2d-grid hide-overlays";
     this.gridEl.setAttribute("role", "grid");
     this.gridEl.setAttribute("aria-label", "15-Puzzle 2D Board");
 
-    // 16 background slot cells
     for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
       const slot = document.createElement("div");
       slot.className = "board-2d-slot";
       this.gridEl.appendChild(slot);
     }
 
-    // 15 movable tiles positioned smoothly via CSS transform percentages
     for (let tile = 1; tile <= 15; tile++) {
       const tileEl = document.createElement("button");
       tileEl.type = "button";
@@ -39,6 +40,10 @@ export class Board2D {
         <span class="tile-arrow" aria-hidden="true"></span>
       `;
       tileEl.addEventListener("click", () => {
+        if (this._swipeHandled) {
+          this._swipeHandled = false;
+          return;
+        }
         if (this.onTileMove && tileEl.dataset.moveAction) {
           this.onTileMove(tileEl.dataset.moveAction);
         }
@@ -46,6 +51,26 @@ export class Board2D {
       this.tileElements.set(tile, tileEl);
       this.gridEl.appendChild(tileEl);
     }
+
+    // Swipe gesture on 2D grid: sliding a finger/pointer moves a tile in the swipe direction
+    // (which moves the blank in the opposite direction).
+    this.gridEl.addEventListener("pointerdown", (e) => {
+      this._swipeStart = { x: e.clientX, y: e.clientY };
+      this._swipeHandled = false;
+    });
+    this.gridEl.addEventListener("pointerup", (e) => {
+      if (!this._swipeStart || !this.onTileMove) return;
+      const dx = e.clientX - this._swipeStart.x;
+      const dy = e.clientY - this._swipeStart.y;
+      this._swipeStart = null;
+      if (Math.hypot(dx, dy) < 26) return;
+      this._swipeHandled = true;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        this.onTileMove(dx > 0 ? Action.LEFT : Action.RIGHT);
+      } else {
+        this.onTileMove(dy > 0 ? Action.UP : Action.DOWN);
+      }
+    });
 
     this.container.appendChild(this.gridEl);
   }
@@ -75,7 +100,6 @@ export class Board2D {
       el.classList.toggle("is-home", diag.isCorrect);
       el.classList.toggle("is-conflict", diag.inConflict);
 
-      // Determine if adjacent to blank (clicking tile slides blank into this cell)
       let moveAction = "";
       let arrowSymbol = "";
       if (r === br - 1 && c === bc) {
